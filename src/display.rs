@@ -62,20 +62,20 @@ impl Display for Register {
         use ThreeBitCode::*;
         let reg = match (self.code, self.word) {
             (_000, false) => "al",
-            (_000, true) => "ax",
             (_001, false) => "cl",
-            (_001, true) => "cx",
             (_010, false) => "dl",
-            (_010, true) => "dx",
             (_011, false) => "bl",
-            (_011, true) => "bx",
             (_100, false) => "ah",
-            (_100, true) => "sp",
             (_101, false) => "ch",
-            (_101, true) => "bp",
             (_110, false) => "dh",
-            (_110, true) => "si",
             (_111, false) => "bh",
+            (_000, true) => "ax",
+            (_001, true) => "cx",
+            (_010, true) => "dx",
+            (_011, true) => "bx",
+            (_100, true) => "sp",
+            (_101, true) => "bp",
+            (_110, true) => "si",
             (_111, true) => "di",
         };
         write!(f, "{reg}")
