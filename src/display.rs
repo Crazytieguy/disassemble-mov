@@ -1,37 +1,59 @@
 use crate::model::*;
-use std::fmt::{Display, Formatter, Result};
+use enum_dispatch::enum_dispatch;
+use itoa::Buffer;
 
-impl Display for DataLiteral {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+#[enum_dispatch]
+pub(crate) trait FormatOnto {
+    fn format_onto(&self, s: &mut String);
+}
+
+impl FormatOnto for i16 {
+    fn format_onto(&self, s: &mut String) {
+        s.push_str(Buffer::new().format(*self));
+    }
+}
+
+impl FormatOnto for DataLiteral {
+    fn format_onto(&self, s: &mut String) {
         use DataLiteral::*;
         match self {
-            ExplicitByte(d) => write!(f, "byte {d}"),
-            ExplicitWord(d) => write!(f, "word {d}"),
-            Implicit(d) => write!(f, "{d}"),
+            ExplicitByte(d) => {
+                s.push_str("byte ");
+                d.format_onto(s);
+            }
+            ExplicitWord(d) => {
+                s.push_str("word ");
+                d.format_onto(s);
+            }
+            Implicit(d) => {
+                d.format_onto(s);
+            }
         }
     }
 }
 
-impl Display for MemoryLiteral {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        write!(f, "[{d}]", d = self.0)
+impl FormatOnto for MemoryLiteral {
+    fn format_onto(&self, s: &mut String) {
+        s.push('[');
+        self.0.format_onto(s);
+        s.push(']');
     }
 }
 
-impl Display for SegmentRegister {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+impl FormatOnto for SegmentRegister {
+    fn format_onto(&self, s: &mut String) {
         use SegmentRegister::*;
         match self {
-            _00 => write!(f, "es"),
-            _01 => write!(f, "cs"),
-            _10 => write!(f, "ss"),
-            _11 => write!(f, "ds"),
+            _00 => s.push_str("es"),
+            _01 => s.push_str("cs"),
+            _10 => s.push_str("ss"),
+            _11 => s.push_str("ds"),
         }
     }
 }
 
-impl Display for MemoryCalc {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+impl FormatOnto for MemoryCalc {
+    fn format_onto(&self, s: &mut String) {
         use ThreeBitCode::*;
         let regs = match self.code {
             _000 => "bx + si",
@@ -44,21 +66,34 @@ impl Display for MemoryCalc {
                 let d = self
                     .displacement
                     .expect("Direct address should have a displacement");
-                return write!(f, "[{d}]");
+                s.push('[');
+                d.format_onto(s);
+                s.push(']');
+                return;
             }
             _110 => "bp",
             _111 => "bx",
         };
+        s.push('[');
         match self.displacement {
-            Some(d) if d > 0 => write!(f, "[{regs} + {d}]"),
-            Some(d) if d < 0 => write!(f, "[{regs} - {neg}]", neg = -d),
-            _ => write!(f, "[{regs}]"),
+            Some(d) if d > 0 => {
+                s.push_str(regs);
+                s.push_str(" + ");
+                d.format_onto(s);
+            }
+            Some(d) if d < 0 => {
+                s.push_str(regs);
+                s.push_str(" - ");
+                (-d).format_onto(s);
+            }
+            _ => s.push_str(regs),
         }
+        s.push(']');
     }
 }
 
-impl Display for Register {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+impl FormatOnto for Register {
+    fn format_onto(&self, s: &mut String) {
         use ThreeBitCode::*;
         let reg = match (self.code, self.word) {
             (_000, false) => "al",
@@ -78,26 +113,24 @@ impl Display for Register {
             (_110, true) => "si",
             (_111, true) => "di",
         };
-        write!(f, "{reg}")
+        s.push_str(reg);
     }
 }
 
-impl Display for Accumulator {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+impl FormatOnto for Accumulator {
+    fn format_onto(&self, s: &mut String) {
         match self.word {
-            false => write!(f, "al"),
-            true => write!(f, "ax"),
+            false => s.push_str("al"),
+            true => s.push_str("ax"),
         }
     }
 }
 
-impl Display for MoveInstruction {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        write!(
-            f,
-            "mov {dest}, {source}",
-            dest = self.destination,
-            source = self.source
-        )
+impl FormatOnto for MoveInstruction {
+    fn format_onto(&self, s: &mut String) {
+        s.push_str("mov ");
+        self.destination.format_onto(s);
+        s.push_str(", ");
+        self.source.format_onto(s);
     }
 }

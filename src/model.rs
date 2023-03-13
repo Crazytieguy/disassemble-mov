@@ -1,4 +1,5 @@
-use derive_more::{Display, From};
+use crate::display::FormatOnto;
+use enum_dispatch::enum_dispatch;
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct MoveInstruction {
@@ -6,14 +7,15 @@ pub(crate) struct MoveInstruction {
     pub(crate) destination: Location,
 }
 
-#[derive(Debug, Clone, Copy, Display, From)]
+#[enum_dispatch(FormatOnto)]
+#[derive(Debug, Clone, Copy)]
 pub(crate) enum Location {
-    DataLiteral(DataLiteral),
-    MemoryLiteral(MemoryLiteral),
-    Accumulator(Accumulator),
-    SegmentRegister(SegmentRegister),
-    Register(Register),
-    MemoryCalc(MemoryCalc),
+    DataLiteral,
+    MemoryLiteral,
+    Accumulator,
+    SegmentRegister,
+    Register,
+    MemoryCalc,
 }
 
 #[derive(Debug, Clone, Copy)]
