@@ -42,18 +42,18 @@ pub(crate) enum SegmentRegister {
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct Register {
     pub(crate) word: bool,
-    pub(crate) code: Code,
+    pub(crate) code: ThreeBitCode,
 }
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct MemoryCalc {
     pub(crate) displacement: Option<i16>,
     pub(crate) mode_is_0: bool,
-    pub(crate) code: Code,
+    pub(crate) code: ThreeBitCode,
 }
 
 #[derive(Debug, Clone, Copy)]
-pub(crate) enum Code {
+pub(crate) enum ThreeBitCode {
     _000,
     _001,
     _010,

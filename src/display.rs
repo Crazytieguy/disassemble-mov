@@ -3,10 +3,11 @@ use std::fmt::{Display, Formatter, Result};
 
 impl Display for DataLiteral {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        use DataLiteral::*;
         match self {
-            DataLiteral::ExplicitByte(d) => write!(f, "byte {d}"),
-            DataLiteral::ExplicitWord(d) => write!(f, "word {d}"),
-            DataLiteral::Implicit(d) => write!(f, "{d}"),
+            ExplicitByte(d) => write!(f, "byte {d}"),
+            ExplicitWord(d) => write!(f, "word {d}"),
+            Implicit(d) => write!(f, "{d}"),
         }
     }
 }
@@ -19,32 +20,34 @@ impl Display for MemoryLiteral {
 
 impl Display for SegmentRegister {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        use SegmentRegister::*;
         match self {
-            SegmentRegister::_00 => write!(f, "es"),
-            SegmentRegister::_01 => write!(f, "cs"),
-            SegmentRegister::_10 => write!(f, "ss"),
-            SegmentRegister::_11 => write!(f, "ds"),
+            _00 => write!(f, "es"),
+            _01 => write!(f, "cs"),
+            _10 => write!(f, "ss"),
+            _11 => write!(f, "ds"),
         }
     }
 }
 
 impl Display for MemoryCalc {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        use ThreeBitCode::*;
         let regs = match self.code {
-            Code::_000 => "bx + si",
-            Code::_001 => "bx + di",
-            Code::_010 => "bp + si",
-            Code::_011 => "bp + di",
-            Code::_100 => "si",
-            Code::_101 => "di",
-            Code::_110 if self.mode_is_0 => {
+            _000 => "bx + si",
+            _001 => "bx + di",
+            _010 => "bp + si",
+            _011 => "bp + di",
+            _100 => "si",
+            _101 => "di",
+            _110 if self.mode_is_0 => {
                 let d = self
                     .displacement
                     .expect("Direct address should have a displacement");
                 return write!(f, "[{d}]");
             }
-            Code::_110 => "bp",
-            Code::_111 => "bx",
+            _110 => "bp",
+            _111 => "bx",
         };
         match self.displacement {
             Some(d) if d > 0 => write!(f, "[{regs} + {d}]"),
@@ -56,23 +59,24 @@ impl Display for MemoryCalc {
 
 impl Display for Register {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        use ThreeBitCode::*;
         let reg = match (self.code, self.word) {
-            (Code::_000, false) => "al",
-            (Code::_000, true) => "ax",
-            (Code::_001, false) => "cl",
-            (Code::_001, true) => "cx",
-            (Code::_010, false) => "dl",
-            (Code::_010, true) => "dx",
-            (Code::_011, false) => "bl",
-            (Code::_011, true) => "bx",
-            (Code::_100, false) => "ah",
-            (Code::_100, true) => "sp",
-            (Code::_101, false) => "ch",
-            (Code::_101, true) => "bp",
-            (Code::_110, false) => "dh",
-            (Code::_110, true) => "si",
-            (Code::_111, false) => "bh",
-            (Code::_111, true) => "di",
+            (_000, false) => "al",
+            (_000, true) => "ax",
+            (_001, false) => "cl",
+            (_001, true) => "cx",
+            (_010, false) => "dl",
+            (_010, true) => "dx",
+            (_011, false) => "bl",
+            (_011, true) => "bx",
+            (_100, false) => "ah",
+            (_100, true) => "sp",
+            (_101, false) => "ch",
+            (_101, true) => "bp",
+            (_110, false) => "dh",
+            (_110, true) => "si",
+            (_111, false) => "bh",
+            (_111, true) => "di",
         };
         write!(f, "{reg}")
     }
