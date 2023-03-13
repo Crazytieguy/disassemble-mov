@@ -1,8 +1,8 @@
 use crate::model::*;
-use std::fmt::{self, Display, Formatter};
+use std::fmt::{Display, Formatter, Result};
 
 impl Display for DataLiteral {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
             DataLiteral::ExplicitByte(d) => write!(f, "byte {d}"),
             DataLiteral::ExplicitWord(d) => write!(f, "word {d}"),
@@ -12,24 +12,24 @@ impl Display for DataLiteral {
 }
 
 impl Display for MemoryLiteral {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         write!(f, "[{d}]", d = self.0)
     }
 }
 
 impl Display for SegmentRegister {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
-            SegmentRegister::ES => write!(f, "es"),
-            SegmentRegister::CS => write!(f, "cs"),
-            SegmentRegister::SS => write!(f, "ss"),
-            SegmentRegister::DS => write!(f, "ds"),
+            SegmentRegister::_00 => write!(f, "es"),
+            SegmentRegister::_01 => write!(f, "cs"),
+            SegmentRegister::_10 => write!(f, "ss"),
+            SegmentRegister::_11 => write!(f, "ds"),
         }
     }
 }
 
 impl Display for MemoryCalc {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         let regs = match self.code {
             Code::_000 => "bx + si",
             Code::_001 => "bx + di",
@@ -55,7 +55,7 @@ impl Display for MemoryCalc {
 }
 
 impl Display for Register {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         let reg = match (self.code, self.word) {
             (Code::_000, false) => "al",
             (Code::_000, true) => "ax",
@@ -79,7 +79,7 @@ impl Display for Register {
 }
 
 impl Display for Accumulator {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self.word {
             false => write!(f, "al"),
             true => write!(f, "ax"),
@@ -88,7 +88,7 @@ impl Display for Accumulator {
 }
 
 impl Display for MoveInstruction {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         write!(
             f,
             "mov {dest}, {source}",

@@ -1,3 +1,5 @@
+#![allow(clippy::just_underscores_and_digits)]
+
 use crate::model::*;
 use nom::{
     bits::{
@@ -15,89 +17,22 @@ use nom_supreme::final_parser::final_parser;
 
 type IResult<'a, O> = nom::IResult<(&'a [u8], usize), O>;
 
-#[derive(Debug, Clone, Copy)]
-enum Mode {
-    _00,
-    _01,
-    _10,
-    _11,
+pub(crate) fn many_move_instructions(input: &[u8]) -> Result<Vec<MoveInstruction>, Error<&[u8]>> {
+    final_parser(many1(bits::<_, _, Error<(&[u8], usize)>, Error<&[u8]>, _>(
+        mov_instruction,
+    )))(input)
 }
 
-fn mode(input: (&[u8], usize)) -> IResult<Mode> {
-    take(2usize)
-        .map(|bits: u8| match bits {
-            0b00 => Mode::_00,
-            0b01 => Mode::_01,
-            0b10 => Mode::_10,
-            0b11 => Mode::_11,
-            _ => unreachable!(),
-        })
-        .parse(input)
-}
-
-fn code(input: (&[u8], usize)) -> IResult<Code> {
-    take(3usize)
-        .map(|bits: u8| match bits {
-            0b000 => Code::_000,
-            0b001 => Code::_001,
-            0b010 => Code::_010,
-            0b011 => Code::_011,
-            0b100 => Code::_100,
-            0b101 => Code::_101,
-            0b110 => Code::_110,
-            0b111 => Code::_111,
-            _ => unreachable!(),
-        })
-        .parse(input)
-}
-
-fn segment_register(input: (&[u8], usize)) -> IResult<SegmentRegister> {
-    take(2usize)
-        .map(|bits: u8| match bits {
-            0b00 => SegmentRegister::ES,
-            0b01 => SegmentRegister::CS,
-            0b10 => SegmentRegister::SS,
-            0b11 => SegmentRegister::DS,
-            _ => unreachable!(),
-        })
-        .parse(input)
-}
-
-fn parse_word(input: (&[u8], usize)) -> IResult<i16> {
-    bytes::<_, _, Error<&[u8]>, _, _>(le_i16)(input)
-}
-
-fn byte_as_i16(input: (&[u8], usize)) -> IResult<i16> {
-    bytes::<_, _, Error<&[u8]>, _, _>(i8)
-        .map(|b| b as i16)
-        .parse(input)
-}
-
-fn byte_or_word(word: bool, input: (&[u8], usize)) -> IResult<i16> {
-    if word {
-        parse_word.parse(input)
-    } else {
-        byte_as_i16.parse(input)
-    }
-}
-
-fn reg_or_mem_calc(word: bool, mode: Mode, code: Code, input: (&[u8], usize)) -> IResult<Location> {
-    let (input, displacement) = match mode {
-        Mode::_11 => return Ok((input, Register { word, code }.into())),
-        Mode::_00 if matches!(code, Code::_110) => parse_word.map(Some).parse(input)?,
-        Mode::_00 => (input, None),
-        Mode::_01 => byte_as_i16.map(Some).parse(input)?,
-        Mode::_10 => parse_word.map(Some).parse(input)?,
-    };
-    Ok((
-        input,
-        MemoryCalc {
-            displacement,
-            mode_is_0: matches!(mode, Mode::_00),
-            code,
-        }
-        .into(),
-    ))
+fn mov_instruction(input: (&[u8], usize)) -> IResult<MoveInstruction> {
+    alt((
+        register_or_memory_to_or_from_register,
+        immediate_to_register_or_memory,
+        immediate_to_register,
+        memory_to_accumulator,
+        accumulator_to_memory,
+        register_or_memory_to_segment_register,
+        segment_register_to_register_or_memory,
+    ))(input)
 }
 
 fn register_or_memory_to_or_from_register(input: (&[u8], usize)) -> IResult<MoveInstruction> {
@@ -220,20 +155,91 @@ fn segment_register_to_register_or_memory(input: (&[u8], usize)) -> IResult<Move
     ))
 }
 
-fn mov_instruction(input: (&[u8], usize)) -> IResult<MoveInstruction> {
-    alt((
-        register_or_memory_to_or_from_register,
-        immediate_to_register_or_memory,
-        immediate_to_register,
-        memory_to_accumulator,
-        accumulator_to_memory,
-        register_or_memory_to_segment_register,
-        segment_register_to_register_or_memory,
-    ))(input)
+#[derive(Debug, Clone, Copy)]
+enum Mode {
+    _00,
+    _01,
+    _10,
+    _11,
 }
 
-pub(crate) fn many_move_instructions(input: &[u8]) -> Result<Vec<MoveInstruction>, Error<&[u8]>> {
-    final_parser(many1(bits::<_, _, Error<(&[u8], usize)>, Error<&[u8]>, _>(
-        mov_instruction,
-    )))(input)
+fn mode(input: (&[u8], usize)) -> IResult<Mode> {
+    use Mode::*;
+    take(2usize)
+        .map(|bits: u8| match bits {
+            0b00 => _00,
+            0b01 => _01,
+            0b10 => _10,
+            0b11 => _11,
+            _ => unreachable!(),
+        })
+        .parse(input)
+}
+
+fn segment_register(input: (&[u8], usize)) -> IResult<SegmentRegister> {
+    use SegmentRegister::*;
+    take(2usize)
+        .map(|bits: u8| match bits {
+            0b00 => _00,
+            0b01 => _01,
+            0b10 => _10,
+            0b11 => _11,
+            _ => unreachable!(),
+        })
+        .parse(input)
+}
+
+fn code(input: (&[u8], usize)) -> IResult<Code> {
+    use Code::*;
+    take(3usize)
+        .map(|bits: u8| match bits {
+            0b000 => _000,
+            0b001 => _001,
+            0b010 => _010,
+            0b011 => _011,
+            0b100 => _100,
+            0b101 => _101,
+            0b110 => _110,
+            0b111 => _111,
+            _ => unreachable!(),
+        })
+        .parse(input)
+}
+
+fn parse_word(input: (&[u8], usize)) -> IResult<i16> {
+    bytes::<_, _, Error<&[u8]>, _, _>(le_i16)(input)
+}
+
+fn byte_as_i16(input: (&[u8], usize)) -> IResult<i16> {
+    bytes::<_, _, Error<&[u8]>, _, _>(i8)
+        .map(|b| b as i16)
+        .parse(input)
+}
+
+fn byte_or_word(word: bool, input: (&[u8], usize)) -> IResult<i16> {
+    if word {
+        parse_word.parse(input)
+    } else {
+        byte_as_i16.parse(input)
+    }
+}
+
+fn reg_or_mem_calc(word: bool, mode: Mode, code: Code, input: (&[u8], usize)) -> IResult<Location> {
+    use Mode::*;
+    let (input, displacement) = match mode {
+        _11 => return Ok((input, Register { word, code }.into())),
+        _00 if matches!(code, Code::_110) => parse_word.map(Some).parse(input)?,
+        _00 => (input, None),
+        _01 => byte_as_i16.map(Some).parse(input)?,
+        _10 => parse_word.map(Some).parse(input)?,
+    };
+    Ok((
+        input,
+        MemoryCalc {
+            displacement,
+            mode_is_0: matches!(mode, _00),
+            code,
+        }
+        .into(),
+    ))
 }

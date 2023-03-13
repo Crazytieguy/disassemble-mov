@@ -33,10 +33,10 @@ pub(crate) struct Accumulator {
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum SegmentRegister {
-    ES,
-    CS,
-    SS,
-    DS,
+    _00,
+    _01,
+    _10,
+    _11,
 }
 
 #[derive(Debug, Clone, Copy)]
