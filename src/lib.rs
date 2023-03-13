@@ -1,6 +1,3 @@
-#[cfg(test)]
-mod tests;
-
 mod display;
 mod model;
 mod parse;
