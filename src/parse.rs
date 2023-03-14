@@ -1,35 +1,31 @@
 use crate::{display::FormatOnto, model::*};
 use nom::{
-    bits::{
-        bits, bytes,
-        complete::{bool, tag, take},
-    },
+    bits::complete::{bool, tag, take},
     error::Error,
     multi::fold_many1,
-    number::complete::{i8, le_i16},
+    number::complete::{i8, le_i16, u8},
     sequence::tuple,
     Parser,
 };
 use nom_supreme::final_parser::final_parser;
 
-type IResult<'a, O> = nom::IResult<(&'a [u8], usize), O>;
+type BitResult<'a, O> = nom::IResult<(&'a [u8], usize), O>;
+type ByteResult<'a, O> = nom::IResult<&'a [u8], O>;
 
 pub fn disassemble(input: &[u8]) -> Result<String, Error<&[u8]>> {
-    let byte_mov_parser = bits::<_, _, Error<(&[u8], usize)>, Error<&[u8]>, _>(mov_instruction);
-    let parse_many = fold_many1(
-        byte_mov_parser,
+    final_parser(fold_many1(
+        mov_instruction,
         || String::with_capacity(input.len() * 6),
         |mut acc, instruction| {
             instruction.format_onto(&mut acc);
             acc.push('\n');
             acc
         },
-    );
-    final_parser(parse_many)(input)
+    ))(input)
 }
 
-fn mov_instruction(input: (&[u8], usize)) -> IResult<MoveInstruction> {
-    let (_, first_byte): (_, u8) = take(8usize)(input)?;
+fn mov_instruction(input: &[u8]) -> ByteResult<MoveInstruction> {
+    let (_, first_byte) = u8(input)?;
     match first_byte {
         0b10001000..=0b10001011 => register_or_memory_to_or_from_register(input),
         0b11000110..=0b11000111 => immediate_to_register_or_memory(input),
@@ -45,16 +41,15 @@ fn mov_instruction(input: (&[u8], usize)) -> IResult<MoveInstruction> {
     }
 }
 
-fn register_or_memory_to_or_from_register(input: (&[u8], usize)) -> IResult<MoveInstruction> {
-    let (input, (_, reg_is_destination, word, mode, reg_code, reg_or_mem_code)) = tuple((
+fn register_or_memory_to_or_from_register(input: &[u8]) -> ByteResult<MoveInstruction> {
+    let (input, (_, reg_is_destination, word, mode, reg_code, reg_or_mem_code)) = bits(tuple((
         tag(0b100010, 6usize),
         bool,
         bool,
         mode,
         three_bit_code,
         three_bit_code,
-    ))(input)?;
-    debug_assert_eq!(input.1, 0);
+    )))(input)?;
     let reg = Register {
         word,
         code: reg_code,
@@ -68,15 +63,14 @@ fn register_or_memory_to_or_from_register(input: (&[u8], usize)) -> IResult<Move
     ok_move_instruction(input, source, destination)
 }
 
-fn immediate_to_register_or_memory(input: (&[u8], usize)) -> IResult<MoveInstruction> {
-    let (input, (_, word, mode, _, reg_or_mem_code)) = tuple((
+fn immediate_to_register_or_memory(input: &[u8]) -> ByteResult<MoveInstruction> {
+    let (input, (_, word, mode, _, reg_or_mem_code)) = bits(tuple((
         tag(0b1100011, 7usize),
         bool,
         mode,
         tag(0b000, 3usize),
         three_bit_code,
-    ))(input)?;
-    debug_assert_eq!(input.1, 0);
+    )))(input)?;
     let (input, destination) = reg_or_mem_calc(word, mode, reg_or_mem_code, input)?;
     let (input, data) = byte_or_word(word, input)?;
     let source = match (destination, word) {
@@ -87,64 +81,59 @@ fn immediate_to_register_or_memory(input: (&[u8], usize)) -> IResult<MoveInstruc
     ok_move_instruction(input, source, destination)
 }
 
-fn immediate_to_register(input: (&[u8], usize)) -> IResult<MoveInstruction> {
-    let (input, (_, word, code)) = tuple((tag(0b1011, 4usize), bool, three_bit_code))(input)?;
-    debug_assert_eq!(input.1, 0);
+fn immediate_to_register(input: &[u8]) -> ByteResult<MoveInstruction> {
+    let (input, (_, word, code)) = bits(tuple((tag(0b1011, 4usize), bool, three_bit_code)))(input)?;
     let (input, data) = byte_or_word(word, input)?;
     let source = DataLiteral::Implicit(data);
     let destination = Register { word, code };
     ok_move_instruction(input, source, destination)
 }
 
-fn memory_to_accumulator(input: (&[u8], usize)) -> IResult<MoveInstruction> {
-    let (input, (_, word)) = tuple((tag(0b1010000, 7usize), bool))(input)?;
-    debug_assert_eq!(input.1, 0);
+fn memory_to_accumulator(input: &[u8]) -> ByteResult<MoveInstruction> {
+    let (input, (_, word)) = bits(tuple((tag(0b1010000, 7usize), bool)))(input)?;
     let (input, addr) = byte_or_word(word, input)?;
     let source = MemoryLiteral(addr);
     let destination = Accumulator { word };
     ok_move_instruction(input, source, destination)
 }
 
-fn accumulator_to_memory(input: (&[u8], usize)) -> IResult<MoveInstruction> {
-    let (input, (_, word)) = tuple((tag(0b1010001, 7usize), bool))(input)?;
-    debug_assert_eq!(input.1, 0);
+fn accumulator_to_memory(input: &[u8]) -> ByteResult<MoveInstruction> {
+    let (input, (_, word)) = bits(tuple((tag(0b1010001, 7usize), bool)))(input)?;
     let (input, addr) = byte_or_word(word, input)?;
     let source = Accumulator { word };
     let destination = MemoryLiteral(addr);
     ok_move_instruction(input, source, destination)
 }
 
-fn register_or_memory_to_segment_register(input: (&[u8], usize)) -> IResult<MoveInstruction> {
-    let (input, (_, mode, _, destination, code)) = tuple((
+fn register_or_memory_to_segment_register(input: &[u8]) -> ByteResult<MoveInstruction> {
+    let (input, (_, mode, _, destination, code)) = bits(tuple((
         tag(0b10001110, 8usize),
         mode,
         tag(0b0, 1usize),
         segment_register,
         three_bit_code,
-    ))(input)?;
-    debug_assert_eq!(input.1, 0);
+    )))(input)?;
     let (input, source) = reg_or_mem_calc(true, mode, code, input)?;
     ok_move_instruction(input, source, destination)
 }
 
-fn segment_register_to_register_or_memory(input: (&[u8], usize)) -> IResult<MoveInstruction> {
-    let (input, (_, mode, _, source, code)) = tuple((
+fn segment_register_to_register_or_memory(input: &[u8]) -> ByteResult<MoveInstruction> {
+    let (input, (_, mode, _, source, code)) = bits(tuple((
         tag(0b10001100, 8usize),
         mode,
         tag(0b0, 1usize),
         segment_register,
         three_bit_code,
-    ))(input)?;
-    debug_assert_eq!(input.1, 0);
+    )))(input)?;
     let (input, destination) = reg_or_mem_calc(true, mode, code, input)?;
     ok_move_instruction(input, source, destination)
 }
 
 fn ok_move_instruction(
-    input: (&[u8], usize),
+    input: &[u8],
     source: impl Into<Location>,
     destination: impl Into<Location>,
-) -> IResult<MoveInstruction> {
+) -> ByteResult<MoveInstruction> {
     Ok((
         input,
         MoveInstruction {
@@ -158,15 +147,15 @@ fn reg_or_mem_calc(
     word: bool,
     mode: Mode,
     code: ThreeBitCode,
-    input: (&[u8], usize),
-) -> IResult<Location> {
+    input: &[u8],
+) -> ByteResult<Location> {
     use Mode::*;
     let (input, displacement) = match mode {
         _11 => return Ok((input, Register { word, code }.into())),
-        _00 if matches!(code, ThreeBitCode::_110) => parse_word.map(Some).parse(input)?,
+        _00 if matches!(code, ThreeBitCode::_110) => le_i16.map(Some).parse(input)?,
         _00 => (input, None),
-        _01 => byte_as_i16.map(Some).parse(input)?,
-        _10 => parse_word.map(Some).parse(input)?,
+        _01 => i8.map(|b| b as i16).map(Some).parse(input)?,
+        _10 => le_i16.map(Some).parse(input)?,
     };
     Ok((
         input,
@@ -187,7 +176,7 @@ enum Mode {
     _11,
 }
 
-fn mode(input: (&[u8], usize)) -> IResult<Mode> {
+fn mode(input: (&[u8], usize)) -> BitResult<Mode> {
     use Mode::*;
     take(2usize)
         .map(|bits: u8| match bits {
@@ -200,7 +189,7 @@ fn mode(input: (&[u8], usize)) -> IResult<Mode> {
         .parse(input)
 }
 
-fn segment_register(input: (&[u8], usize)) -> IResult<SegmentRegister> {
+fn segment_register(input: (&[u8], usize)) -> BitResult<SegmentRegister> {
     use SegmentRegister::*;
     take(2usize)
         .map(|bits: u8| match bits {
@@ -213,7 +202,7 @@ fn segment_register(input: (&[u8], usize)) -> IResult<SegmentRegister> {
         .parse(input)
 }
 
-fn three_bit_code(input: (&[u8], usize)) -> IResult<ThreeBitCode> {
+fn three_bit_code(input: (&[u8], usize)) -> BitResult<ThreeBitCode> {
     use ThreeBitCode::*;
     take(3usize)
         .map(|bits: u8| match bits {
@@ -230,20 +219,17 @@ fn three_bit_code(input: (&[u8], usize)) -> IResult<ThreeBitCode> {
         .parse(input)
 }
 
-fn parse_word(input: (&[u8], usize)) -> IResult<i16> {
-    bytes::<_, _, Error<&[u8]>, _, _>(le_i16)(input)
-}
-
-fn byte_as_i16(input: (&[u8], usize)) -> IResult<i16> {
-    bytes::<_, _, Error<&[u8]>, _, _>(i8)
-        .map(|b| b as i16)
-        .parse(input)
-}
-
-fn byte_or_word(word: bool, input: (&[u8], usize)) -> IResult<i16> {
+fn byte_or_word(word: bool, input: &[u8]) -> ByteResult<i16> {
     if word {
-        parse_word(input)
+        le_i16(input)
     } else {
-        byte_as_i16(input)
+        i8.map(|b| b as i16).parse(input)
     }
+}
+
+fn bits<'a, O, P>(parser: P) -> impl FnMut(&'a [u8]) -> ByteResult<O>
+where
+    P: Parser<(&'a [u8], usize), O, Error<(&'a [u8], usize)>>,
+{
+    nom::bits::bits(parser)
 }
