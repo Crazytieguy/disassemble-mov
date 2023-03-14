@@ -1,9 +1,9 @@
-use dissasemble_mov::dissasemble;
+use disassemble_mov::disassemble;
 
 type TestResult = Result<(), nom::error::Error<&'static [u8]>>;
 
 fn run_case(bytes: &[u8], answer: &str) -> TestResult {
-    let result = dissasemble(bytes).unwrap();
+    let result = disassemble(bytes).unwrap();
     let mut result_lines = result.lines();
     for answer_line in answer.lines().filter(|s| s.starts_with("mov")) {
         assert_eq!(answer_line, result_lines.next().unwrap());

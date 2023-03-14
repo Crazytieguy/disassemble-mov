@@ -1,4 +1,4 @@
-use crate::model::*;
+use crate::{display::FormatOnto, model::*};
 use nom::{
     bits::{
         bits, bytes,
@@ -6,7 +6,7 @@ use nom::{
     },
     branch::alt,
     error::Error,
-    multi::many1,
+    multi::fold_many1,
     number::complete::{i8, le_i16},
     sequence::tuple,
     Parser,
@@ -15,9 +15,18 @@ use nom_supreme::final_parser::final_parser;
 
 type IResult<'a, O> = nom::IResult<(&'a [u8], usize), O>;
 
-pub(crate) fn many_move_instructions(input: &[u8]) -> Result<Vec<MoveInstruction>, Error<&[u8]>> {
+pub fn disassemble(input: &[u8]) -> Result<String, Error<&[u8]>> {
     let byte_mov_parser = bits::<_, _, Error<(&[u8], usize)>, Error<&[u8]>, _>(mov_instruction);
-    final_parser(many1(byte_mov_parser))(input)
+    let parse_many = fold_many1(
+        byte_mov_parser,
+        || String::with_capacity(input.len() * 5),
+        |mut acc, instruction| {
+            instruction.format_onto(&mut acc);
+            acc.push('\n');
+            acc
+        },
+    );
+    final_parser(parse_many)(input)
 }
 
 fn mov_instruction(input: (&[u8], usize)) -> IResult<MoveInstruction> {
