@@ -4,7 +4,6 @@ use nom::{
         bits, bytes,
         complete::{bool, tag, take},
     },
-    branch::alt,
     error::Error,
     multi::fold_many1,
     number::complete::{i8, le_i16},
@@ -30,15 +29,20 @@ pub fn disassemble(input: &[u8]) -> Result<String, Error<&[u8]>> {
 }
 
 fn mov_instruction(input: (&[u8], usize)) -> IResult<MoveInstruction> {
-    alt((
-        register_or_memory_to_or_from_register,
-        immediate_to_register_or_memory,
-        immediate_to_register,
-        memory_to_accumulator,
-        accumulator_to_memory,
-        register_or_memory_to_segment_register,
-        segment_register_to_register_or_memory,
-    ))(input)
+    let (_, first_byte): (_, u8) = take(8usize)(input)?;
+    match first_byte {
+        0b10001000..=0b10001011 => register_or_memory_to_or_from_register(input),
+        0b11000110..=0b11000111 => immediate_to_register_or_memory(input),
+        0b10110000..=0b10111111 => immediate_to_register(input),
+        0b10100000..=0b10100001 => memory_to_accumulator(input),
+        0b10100010..=0b10100011 => accumulator_to_memory(input),
+        0b10001110 => register_or_memory_to_segment_register(input),
+        0b10001100 => segment_register_to_register_or_memory(input),
+        _ => Err(nom::Err::Error(Error::new(
+            input,
+            nom::error::ErrorKind::Tag,
+        ))),
+    }
 }
 
 fn register_or_memory_to_or_from_register(input: (&[u8], usize)) -> IResult<MoveInstruction> {
@@ -238,8 +242,8 @@ fn byte_as_i16(input: (&[u8], usize)) -> IResult<i16> {
 
 fn byte_or_word(word: bool, input: (&[u8], usize)) -> IResult<i16> {
     if word {
-        parse_word.parse(input)
+        parse_word(input)
     } else {
-        byte_as_i16.parse(input)
+        byte_as_i16(input)
     }
 }
