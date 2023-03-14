@@ -19,7 +19,7 @@ pub fn disassemble(input: &[u8]) -> Result<String, Error<&[u8]>> {
     let byte_mov_parser = bits::<_, _, Error<(&[u8], usize)>, Error<&[u8]>, _>(mov_instruction);
     let parse_many = fold_many1(
         byte_mov_parser,
-        || String::with_capacity(input.len() * 5),
+        || String::with_capacity(input.len() * 6),
         |mut acc, instruction| {
             instruction.format_onto(&mut acc);
             acc.push('\n');
